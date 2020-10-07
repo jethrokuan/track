@@ -1,0 +1,50 @@
+{
+    "cargo2nix": {
+        "branch": "master",
+        "repo": "https://git.euandreh.xyz/cargo2nix",
+        "rev": "52dfbb48fc43859fd1df6335a02b74d2b343e6d6",
+        "type": "git"
+    },
+    "naersk": {
+        "branch": "master",
+        "description": "Build rust crates in Nix. No configuration, no code generation, no IFD. Sandbox friendly.",
+        "homepage": "",
+        "owner": "nmattia",
+        "repo": "naersk",
+        "rev": "529e910a3f423a8211f8739290014b754b2555b6",
+        "sha256": "0bcy9nmyaan5jvp0wg80wkizc9j166ns685rdr1kbhkvdpywv46y",
+        "type": "tarball",
+        "url": "https://github.com/nmattia/naersk/archive/529e910a3f423a8211f8739290014b754b2555b6.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "niv": {
+        "branch": "master",
+        "description": "Easy dependency management for Nix projects",
+        "homepage": "https://github.com/nmattia/niv",
+        "owner": "nmattia",
+        "repo": "niv",
+        "rev": "9d35b9e4837ab88517210b1701127612c260eccf",
+        "sha256": "0q50xhnm8g2yfyakrh0nly4swyygxpi0a8cb9gp65wcakcgvzvdh",
+        "type": "tarball",
+        "url": "https://github.com/nmattia/niv/archive/9d35b9e4837ab88517210b1701127612c260eccf.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "nixpkgs": {
+        "branch": "nixpkgs-unstable",
+        "description": "Nix Packages collection",
+        "homepage": "",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "502845c3e31ef3de0e424f3fcb09217df2ce6df6",
+        "sha256": "0fcqpsy6y7dgn0y0wgpa56gsg0b0p8avlpjrd79fp4mp9bl18nda",
+        "type": "tarball",
+        "url": "https://github.com/NixOS/nixpkgs/archive/502845c3e31ef3de0e424f3fcb09217df2ce6df6.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "nixpkgs-mozilla": {
+        "branch": "master",
+        "repo": "https://github.com/mozilla/nixpkgs-mozilla",
+        "rev": "57c8084c7ef41366993909c20491e359bbb90f54",
+        "type": "git"
+    }
+}
