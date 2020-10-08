@@ -1,24 +1,20 @@
+{ sources ? import ./nix/sources.nix, pkgs ? import sources.nixpkgs { }}:
 let
-  niv-sources = import ./nix/sources.nix;
-  mozilla-overlay = import niv-sources.nixpkgs-mozilla;
-  pkgs = import niv-sources.nixpkgs { overlays = [ mozilla-overlay ]; };
-  src = pkgs.nix-gitignore.gitignoreSource [ ] ./.;
-  cargo2nix = pkgs.callPackage niv-sources.cargo2nix {
-    lockfile = ./Cargo.lock;
+  # import rust compiler
+  rust = import ./nix/rust.nix { inherit sources; };
+  
+  # configure naersk to use our pinned rust compiler
+  naersk = pkgs.callPackage sources.naersk {
+    rustc = rust;
+    cargo = rust;
   };
-in pkgs.stdenv.mkDerivation {
+  
+  # tell nix-build to ignore the `target` directory
+  src = builtins.filterSource
+    (path: type: type != "directory" || builtins.baseNameOf path != "target")
+    ./.;
+in naersk.buildPackage {
   inherit src;
-  name = "track-cli";
-  buildInputs = [ pkgs.latest.rustChannels.nightly.rust ];
-  phases = [ "unpackPhase" "buildPhase" ];
-  buildPhase = ''
-    # Setup dependencies path to satisfy Cargo
-    mkdir .cargo/
-    ln -s ${cargo2nix.env.cargo-config} .cargo/config
-    ln -s ${cargo2nix.env.vendor} vendor
-
-    # Run the tests
-    cargo test
-    touch $out
-  '';
+  remapPathPrefix =
+    true; # remove nix store references for a smaller output package
 }
