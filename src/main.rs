@@ -23,7 +23,7 @@ const TRACK_DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 mod errors {
     error_chain! {
       foreign_links {
-          Clap(::clap::Error) #[cfg(feature = "application")];
+          Clap(::clap::Error);
           Io(::std::io::Error);
           Chrono(::chrono::format::ParseError);
       }
@@ -70,8 +70,8 @@ fn run() -> Result<()> {
         None => default_track_file,
     };
 
-    let mut track = Track::new(track_file).chain_err(|| "unable to initialize track")?;
-    track.load().chain_err(|| "unable to load track")?;
+    let mut track = Track::new(track_file)?;
+    track.load()?;
 
     match matches.subcommand() {
         ("add", Some(m)) => {
@@ -82,7 +82,7 @@ fn run() -> Result<()> {
             )?;
         }
         _ => {
-            app.print_help().chain_err(|| "could not print help")?;
+            app.print_help()?;
         }
     }
 
@@ -110,7 +110,7 @@ struct Track {
 impl Track {
     fn new(track_file: PathBuf) -> Result<Track> {
         if !track_file.is_file() {
-            std::fs::File::create(&track_file).chain_err(|| "Unable to create track file")?;
+            std::fs::File::create(&track_file)?;
         }
 
         Ok(Track {
@@ -120,24 +120,22 @@ impl Track {
     }
 
     fn load(&mut self) -> Result<()> {
-        self.get_entries().chain_err(|| "Unable to load entries")?;
+        self.get_entries()?;
         Ok(())
     }
 
     fn get_entries(&mut self) -> Result<()> {
-        let f = File::open(&self.track_file)
-            .chain_err(|| format!("Unable to open {}", &self.track_file.to_str().unwrap()))?;
+        let f = File::open(&self.track_file)?;
         let reader = BufReader::new(f);
 
         let mut entries = vec![];
 
         for line in reader.lines() {
-            let l = line.unwrap();
+            let l = line?;
             if l == "" {
                 continue;
             }
-            let entry: Entry =
-                Entry::from(&l).chain_err(|| format!("Unable to parse entry {}", l))?;
+            let entry: Entry = Entry::from(&l)?;
             entries.push(entry);
         }
 
@@ -148,16 +146,13 @@ impl Track {
 
     fn add_entry(&self, category: &str, value: &str) -> Result<()> {
         let local: DateTime<Local> = Local::now();
-        let file = OpenOptions::new()
-            .append(true)
-            .open(&self.track_file)
-            .expect(format!("Unable to open {}", &self.track_file.to_str().unwrap()).as_str());
+        let file = OpenOptions::new().append(true).open(&self.track_file)?;
         let entry = Entry {
             date: local,
             category: String::from(category),
             value: String::from(value),
         };
-        write!(&file, "{}\n", entry.to_string()).chain_err(|| "write to track file failed")?;
+        write!(&file, "{}\n", entry.to_string())?;
 
         Ok(())
     }
@@ -180,9 +175,7 @@ impl Entry {
         match caps {
             Some(c) => {
                 let date = c.get(1).unwrap().as_str();
-                let date = DateTime::parse_from_rfc3339(date)
-                    .chain_err(|| "Could not parse timestamp")?
-                    .with_timezone(&Local);
+                let date = DateTime::parse_from_rfc3339(date)?.with_timezone(&Local);
 
                 let category = c.get(2).unwrap().as_str().to_string();
                 let value = c.get(3).unwrap().as_str().to_string();
