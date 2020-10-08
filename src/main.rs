@@ -9,6 +9,7 @@ extern crate lazy_static;
 use chrono::prelude::*;
 use clap::{App, Arg, SubCommand};
 use regex::Regex;
+use std::fmt;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::BufRead;
@@ -49,18 +50,19 @@ fn run() -> Result<()> {
             SubCommand::with_name("add")
                 .about("add a new entry")
                 .arg(
-                    Arg::with_name("category")
+                    Arg::with_name("categories")
                         .required(true)
                         .index(1)
-                        .help("the category for the entry"),
+                        .help("the categories for the entry"),
                 )
                 .arg(
-                    Arg::with_name("value")
+                    Arg::with_name("info")
                         .required(true)
                         .index(2)
-                        .help("the value for the entry"),
+                        .help("the info for the entry"),
                 ),
-        );
+        )
+        .subcommand(SubCommand::with_name("read").about("read trackfile"));
     let matches = app.clone().get_matches();
 
     let mut default_track_file = dirs::home_dir().expect("Unable to get home directory");
@@ -71,14 +73,16 @@ fn run() -> Result<()> {
     };
 
     let mut track = Track::new(track_file)?;
-    track.load()?;
 
     match matches.subcommand() {
+        ("read", Some(_)) => {
+            track.load()?;
+            println!("{:?}", &track.entries);
+        }
         ("add", Some(m)) => {
             track.add_entry(
-                m.value_of("category")
-                    .chain_err(|| "no category passed in CLI")?,
-                m.value_of("value").chain_err(|| "no value passed in CLI")?,
+                m.value_of("categories").unwrap(),
+                m.value_of("info").unwrap(),
             )?;
         }
         _ => {
@@ -144,13 +148,13 @@ impl Track {
         Ok(())
     }
 
-    fn add_entry(&self, category: &str, value: &str) -> Result<()> {
+    fn add_entry(&self, categories: &str, info: &str) -> Result<()> {
         let local: DateTime<Local> = Local::now();
         let file = OpenOptions::new().append(true).open(&self.track_file)?;
         let entry = Entry {
             date: local,
-            category: String::from(category),
-            value: String::from(value),
+            categories: Categories::from(categories),
+            info: EntryInfo::from(info),
         };
         write!(&file, "{}\n", entry.to_string())?;
 
@@ -161,8 +165,58 @@ impl Track {
 #[derive(Debug)]
 struct Entry {
     date: DateTime<Local>,
-    category: String,
-    value: String,
+    categories: Categories,
+    info: EntryInfo,
+}
+
+#[derive(Debug)]
+struct Categories {
+    categories: Vec<String>,
+}
+
+impl Categories {
+    fn from(s: &str) -> Categories {
+        let categories = s.split(":").map(|s| String::from(s)).collect();
+        Categories { categories }
+    }
+}
+
+impl fmt::Display for Categories {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.categories.join(":"))
+    }
+}
+
+#[derive(Debug)]
+enum EntryInfo {
+    Quantity,
+    String,
+}
+
+impl EntryInfo {
+    fn from(s: &str) -> EntryInfo {
+        let first_char = l.chars().next().unwrap();
+        if first_char.is_num() {
+            EntryInfo::Quantity {
+                quantity: 0.0,
+                unit: String::from("m"),
+            }
+        } else {
+            String::from(s)
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Quantity {
+    quantity: f32,
+    unit: String,
+}
+
+impl fmt::Display for Quantity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}{}", self.quantity, self.unit)
+    }
 }
 
 impl Entry {
@@ -177,12 +231,13 @@ impl Entry {
                 let date = c.get(1).unwrap().as_str();
                 let date = DateTime::parse_from_rfc3339(date)?.with_timezone(&Local);
 
-                let category = c.get(2).unwrap().as_str().to_string();
-                let value = c.get(3).unwrap().as_str().to_string();
+                let categories = c.get(2).unwrap().as_str();
+                let categories = Categories::from(categories);
+                let info = c.get(3).unwrap().as_str().to_string();
                 Ok(Entry {
                     date,
-                    category,
-                    value,
+                    categories,
+                    info,
                 })
             }
 
@@ -197,8 +252,8 @@ impl ToString for Entry {
         let s = format!(
             "[{}] {}:{}",
             self.date.to_rfc3339(),
-            self.category,
-            self.value
+            self.categories,
+            self.info
         );
         s
     }
