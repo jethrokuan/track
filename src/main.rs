@@ -15,25 +15,24 @@ use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
 use std::path::PathBuf;
-use std::process;
 
 const PKG_NAME: &str = "Track";
 const TRACK_VERSION: &str = env!("CARGO_PKG_VERSION");
 const TRACK_DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
-const TIMESTAMP_FORMAT: &str = "%Y-%m-%d %H:%M:%S %z";
 
 mod errors {
     error_chain! {
       foreign_links {
           Clap(::clap::Error) #[cfg(feature = "application")];
           Io(::std::io::Error);
+          Chrono(::chrono::format::ParseError);
       }
     }
 }
 
 use errors::*;
 
-fn main() {
+fn run() -> Result<()> {
     let mut app = App::new(PKG_NAME)
         .version(TRACK_VERSION)
         .author(clap::crate_authors!(", "))
@@ -71,19 +70,35 @@ fn main() {
         None => default_track_file,
     };
 
-    let mut track = Track::new(track_file);
+    let mut track = Track::new(track_file).chain_err(|| "could not load track")?;
     track.load();
 
     match matches.subcommand() {
         ("add", Some(m)) => {
             track.add_entry(
-                String::from(m.value_of("category").expect("no category passed in CLI")),
-                String::from(m.value_of("value").expect("no value passed in CLI")),
+                m.value_of("category")
+                    .chain_err(|| "no category passed in CLI")?,
+                m.value_of("value").chain_err(|| "no value passed in CLI")?,
             );
         }
         _ => {
-            app.print_help().expect("Unable to print help");
+            app.print_help().chain_err(|| "could not print help")?;
         }
+    }
+
+    Ok(())
+}
+
+fn main() {
+    if let Err(ref e) = run() {
+        println!("error: {}", e);
+        for e in e.iter().skip(1) {
+            println!("caused by: {}", e);
+        }
+        if let Some(backtrace) = e.backtrace() {
+            println!("backtrace: {:?}", backtrace);
+        }
+        std::process::exit(1);
     }
 }
 
@@ -93,16 +108,15 @@ struct Track {
 }
 
 impl Track {
-    fn new(track_file: PathBuf) -> Track {
+    fn new(track_file: PathBuf) -> Result<Track> {
         if !track_file.is_file() {
-            println!("Track file does not exist, exiting.");
-            process::exit(0);
+            bail!("Track file does not exist");
         }
 
-        Track {
+        Ok(Track {
             track_file,
             entries: vec![],
-        }
+        })
     }
 
     fn load(&mut self) {
@@ -127,7 +141,7 @@ impl Track {
         entries
     }
 
-    fn add_entry(&self, category: String, value: String) {
+    fn add_entry(&self, category: &str, value: &str) {
         let local: DateTime<Local> = Local::now();
         let mut file = OpenOptions::new()
             .append(true)
@@ -135,8 +149,8 @@ impl Track {
             .expect(format!("Unable to open {}", &self.track_file.to_str().unwrap()).as_str());
         let entry = Entry {
             date: local,
-            category: category,
-            value: value,
+            category: String::from(category),
+            value: String::from(value),
         };
         file.write(entry.to_string().as_bytes())
             .expect("Write to track file failed");
@@ -159,19 +173,21 @@ impl Entry {
         let caps = ENTRY_RE.captures(s);
         match caps {
             Some(c) => {
-                let timestamp = c.get(1).unwrap().as_str();
-                let timestamp = DateTime::parse_from_str(timestamp, TIMESTAMP_FORMAT)
-                    .expect("Unable to parse timestamp")
+                let date = c.get(1).unwrap().as_str();
+                let date = DateTime::parse_from_rfc3339(date)
+                    .chain_err(|| "Could not parse timestamp")?
                     .with_timezone(&Local);
+
                 let category = c.get(2).unwrap().as_str().to_string();
                 let value = c.get(3).unwrap().as_str().to_string();
                 Ok(Entry {
-                    date: timestamp,
-                    category: category,
-                    value: value,
+                    date,
+                    category,
+                    value,
                 })
             }
-            _ => bail!("Unable to match line."),
+
+            None => bail!("Could not parse line for entry"),
         }
     }
 }
@@ -181,7 +197,7 @@ impl ToString for Entry {
     fn to_string(&self) -> String {
         let s = format!(
             "[{}] {}:{}",
-            self.date.format(TIMESTAMP_FORMAT),
+            self.date.to_rfc3339(),
             self.category,
             self.value
         );
