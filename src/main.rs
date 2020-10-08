@@ -70,8 +70,8 @@ fn run() -> Result<()> {
         None => default_track_file,
     };
 
-    let mut track = Track::new(track_file).chain_err(|| "could not load track")?;
-    track.load();
+    let mut track = Track::new(track_file).chain_err(|| "unable to initialize track")?;
+    track.load().chain_err(|| "unable to load track")?;
 
     match matches.subcommand() {
         ("add", Some(m)) => {
@@ -79,7 +79,7 @@ fn run() -> Result<()> {
                 m.value_of("category")
                     .chain_err(|| "no category passed in CLI")?,
                 m.value_of("value").chain_err(|| "no value passed in CLI")?,
-            );
+            )?;
         }
         _ => {
             app.print_help().chain_err(|| "could not print help")?;
@@ -110,7 +110,7 @@ struct Track {
 impl Track {
     fn new(track_file: PathBuf) -> Result<Track> {
         if !track_file.is_file() {
-            bail!("Track file does not exist");
+            std::fs::File::create(&track_file).chain_err(|| "Unable to create track file")?;
         }
 
         Ok(Track {
@@ -119,31 +119,36 @@ impl Track {
         })
     }
 
-    fn load(&mut self) {
-        self.entries = self.get_entries();
+    fn load(&mut self) -> Result<()> {
+        self.get_entries().chain_err(|| "Unable to load entries")?;
+        Ok(())
     }
 
-    fn get_entries(&self) -> Vec<Entry> {
+    fn get_entries(&mut self) -> Result<()> {
         let f = File::open(&self.track_file)
-            .expect(format!("Unable to open {}", &self.track_file.to_str().unwrap()).as_str());
+            .chain_err(|| format!("Unable to open {}", &self.track_file.to_str().unwrap()))?;
         let reader = BufReader::new(f);
 
-        let entries = vec![];
+        let mut entries = vec![];
 
         for line in reader.lines() {
             let l = line.unwrap();
             if l == "" {
                 continue;
             }
-            println!("{:?}", Entry::from(&l));
+            let entry: Entry =
+                Entry::from(&l).chain_err(|| format!("Unable to parse entry {}", l))?;
+            entries.push(entry);
         }
 
-        entries
+        self.entries = entries;
+
+        Ok(())
     }
 
-    fn add_entry(&self, category: &str, value: &str) {
+    fn add_entry(&self, category: &str, value: &str) -> Result<()> {
         let local: DateTime<Local> = Local::now();
-        let mut file = OpenOptions::new()
+        let file = OpenOptions::new()
             .append(true)
             .open(&self.track_file)
             .expect(format!("Unable to open {}", &self.track_file.to_str().unwrap()).as_str());
@@ -152,8 +157,9 @@ impl Track {
             category: String::from(category),
             value: String::from(value),
         };
-        file.write(entry.to_string().as_bytes())
-            .expect("Write to track file failed");
+        write!(&file, "{}\n", entry.to_string()).chain_err(|| "write to track file failed")?;
+
+        Ok(())
     }
 }
 
