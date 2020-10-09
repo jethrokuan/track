@@ -399,7 +399,7 @@ impl fmt::Display for EntryInfoAggregate {
         for (log, count) in &self.logs {
             s.push_str(log);
             if *count != 1 as i64 {
-                s.push_str(format!("x{}", count).as_str());
+                s.push_str(format!("x{} ", count).as_str());
             }
         }
         for (unit, total) in &self.quantities {
