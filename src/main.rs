@@ -5,7 +5,6 @@ extern crate error_chain;
 
 #[macro_use]
 extern crate lazy_static;
-use ansi_term::Style;
 use chrono::prelude::*;
 use clap::{App, Arg, SubCommand};
 use itertools::Itertools;
@@ -189,6 +188,8 @@ impl Track {
         let min_date: Date<Local> = now
             .checked_sub_signed(chrono::Duration::days(range))
             .unwrap();
+        let mut print_date: bool;
+        let mut print_category: bool;
 
         for (date, entries) in self
             .entries
@@ -197,28 +198,57 @@ impl Track {
             .group_by(|e| e.date.date())
             .into_iter()
         {
-            print!(
-                "{}",
-                Style::new()
-                    .bold()
-                    .paint(date.format("%d %b %Y").to_string())
-            );
-            for (pos, (category, cat_entries)) in entries
+            print_date = true;
+            for (category, cat_entries) in entries
                 .sorted_by(|e1, e2| e1.categories.cmp(&e2.categories))
                 .group_by(|e| e.categories.to_string())
                 .into_iter()
-                .enumerate()
             {
+                print_category = true;
                 let entry_infos = cat_entries.collect::<Vec<&Entry>>();
                 let entry_info_agg: EntryInfoAggregate = Entry::aggregate(entry_infos);
-                if pos != 0 {
-                    print!("           ");
+                for (log, count) in &entry_info_agg.logs {
+                    println!(
+                        "{0: <12} {1: <15} {2: <15}",
+                        if print_date {
+                            print_date = false;
+                            date.format("%d %b %Y").to_string()
+                        } else {
+                            String::new()
+                        },
+                        if print_category {
+                            print_category = false;
+                            category.to_string()
+                        } else {
+                            String::new()
+                        },
+                        format!("{}{}", log,
+                                if *count != 1 as i64 {
+                                    format!("x{}", count)
+                                } else {
+                                    String::new()
+                                }
+                        )
+                    );
                 }
-                println!(
-                    "\t{}\t{}",
-                    Style::new().underline().paint(category),
-                    entry_info_agg
-                );
+                for (unit, total) in &entry_info_agg.quantities {
+                    println!(
+                        "{0: <12} {1: <10} {2: <30}",
+                        if print_date {
+                            print_date = false;
+                            date.format("%d %b %Y").to_string()
+                        } else {
+                            String::new()
+                        },
+                        if print_category {
+                            print_category = false;
+                            category.to_string()
+                        } else {
+                            String::new()
+                        },
+                        format!("{}{} ", total, unit)
+                    );
+                }
             }
         }
         Ok(())
@@ -391,21 +421,4 @@ impl fmt::Display for Quantity {
 struct EntryInfoAggregate {
     logs: HashMap<String, i64>,
     quantities: HashMap<String, f32>,
-}
-
-impl fmt::Display for EntryInfoAggregate {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut s = String::new();
-        for (log, count) in &self.logs {
-            s.push_str(log);
-            if *count != 1 as i64 {
-                s.push_str(format!("x{}", count).as_str());
-            }
-            s.push_str(" ");
-        }
-        for (unit, total) in &self.quantities {
-            s.push_str(format!("{}{} ", total, unit).as_str());
-        }
-        write!(f, "{}", s)
-    }
 }
