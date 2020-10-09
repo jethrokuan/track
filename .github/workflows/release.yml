@@ -1,8 +1,8 @@
 name: Build and upload binaries to release
 
 on:
-  repository_dispatch:
-    types: [tag-created]
+  release:
+    types: [published]
 
 jobs:
   release:
@@ -15,7 +15,7 @@ jobs:
             artifact_name: track
             asset_name: track-linux-amd64
           - os: macos-latest
-            artifact_name: leis-municipais
+            artifact_name: track
             asset_name: track-macos-amd64
     steps:
       - name: Checkout code
