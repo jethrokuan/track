@@ -3,4 +3,4 @@ cargo install cargo-bloat
 cargo build --release
 cargo bloat --release
 strip target/release/track
-cp target/release/track fluminurs.track
+cp target/release/track track.mac

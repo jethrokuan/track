@@ -15,6 +15,7 @@ let
     ./.;
 in naersk.buildPackage {
   inherit src;
+  buildInputs = with pkgs; [openssl pkg-config];
   remapPathPrefix =
     true; # remove nix store references for a smaller output package
 }
