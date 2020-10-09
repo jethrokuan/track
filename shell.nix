@@ -8,5 +8,7 @@ pkgs.mkShell {
     rust
     pkgs.rust-analyzer
     pkgs.rustfmt
+    pkgs.openssl
+    pkgs.pkg-config
   ];
 }

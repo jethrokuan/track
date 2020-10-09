@@ -19,6 +19,11 @@ use std::io::BufReader;
 use std::io::Write;
 use std::path::PathBuf;
 
+use std::env;
+use tokio::stream::StreamExt;
+use telegram_bot::*;
+
+
 const PKG_NAME: &str = "Track";
 const TRACK_VERSION: &str = env!("CARGO_PKG_VERSION");
 const TRACK_DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
@@ -26,18 +31,19 @@ const TRACK_DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 mod errors {
     error_chain! {
         foreign_links {
-          Num(::std::num::ParseIntError);
-          Float(::std::num::ParseFloatError);
-          Clap(::clap::Error);
-          Io(::std::io::Error);
-          Chrono(::chrono::format::ParseError);
-      }
+            Num(::std::num::ParseIntError);
+            Float(::std::num::ParseFloatError);
+            Clap(::clap::Error);
+            Io(::std::io::Error);
+            Chrono(::chrono::format::ParseError);
+            TelegramBot(::telegram_bot::Error);
+        }
     }
 }
 
 use errors::*;
 
-fn run() -> Result<()> {
+async fn run() -> Result<()> {
     let mut app = App::new(PKG_NAME)
         .version(TRACK_VERSION)
         .author(clap::crate_authors!(", "))
@@ -80,6 +86,10 @@ fn run() -> Result<()> {
                         .index(2)
                         .help("the range to query for"),
                 ),
+        )
+        .subcommand(
+            SubCommand::with_name("bot")
+                .about("launch telegram bot")
         );
     let matches = app.clone().get_matches();
 
@@ -106,6 +116,9 @@ fn run() -> Result<()> {
                 m.value_of("info").unwrap(),
             )?;
         }
+        ("bot", Some(_)) => {
+            track.telegram_bot().await?;
+        }
         _ => {
             app.print_help()?;
         }
@@ -114,8 +127,9 @@ fn run() -> Result<()> {
     Ok(())
 }
 
-fn main() {
-    if let Err(ref e) = run() {
+#[tokio::main]
+async fn main() -> Result<()> {
+    if let Err(ref e) = run().await {
         println!("error: {}", e);
         for e in e.iter().skip(1) {
             println!("caused by: {}", e);
@@ -125,6 +139,7 @@ fn main() {
         }
         std::process::exit(1);
     }
+    Ok(())
 }
 
 struct Track {
@@ -214,11 +229,50 @@ impl Track {
         let file = OpenOptions::new().append(true).open(&self.track_file)?;
         let entry = Entry {
             date: local,
-            categories: String::from(categories),
+            categories: String::from(categories).to_lowercase(),
             info: EntryInfo::from(info)?,
         };
         write!(&file, "{}\n", entry.to_string())?;
 
+        Ok(())
+    }
+
+    async fn telegram_bot(&self) -> Result<()> {
+        let token = env::var("TELEGRAM_BOT_TOKEN").chain_err(|| "TELEGRAM_BOT_TOKEN not set")?;
+        let api = Api::new(token);
+
+        // Fetch new updates via long poll method
+        let mut stream = api.stream();
+        while let Some(update) = stream.next().await {
+            // If the received update contains a new message...
+            let update = update?;
+            if let UpdateKind::Message(message) = update.kind {
+                if let MessageKind::Text { ref data, .. } = message.kind {
+                    let first_space = data.find(" ");
+                    let res = match first_space {
+                        Some(v) => {
+                            let category = &data[0..v];
+                            let value = &data[v..].trim();
+
+                            if category.is_empty() {
+                                Err("Invalid entry: category is empty".into())
+                            } else if value.is_empty() {
+                                Err("Invalid entry: value is empty".into())
+                            } else {
+                                self.add_entry(category, value)
+                                    .chain_err(|| "Failed to add entry")
+                            }
+                        },
+                        None => Err("Invalid entry".into())
+                    };
+
+                    match res {
+                        Ok(_) => api.send(message.text_reply("Saved!")).await?,
+                        Err(e) => api.send(message.text_reply(format!("Errored! {}", e))).await?
+                    };
+                }
+            }
+        }
         Ok(())
     }
 }
