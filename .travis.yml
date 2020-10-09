@@ -18,10 +18,9 @@ jobs:
     if: tag IS present
     deploy:
       provider: releases
-      api_key: &1
+      token: &1
         secure: VIeNaLAMkVG9BEE8DNLFP5rgKRIiDa+Rdb8RmgUwla9hehT6/xRm90xLs5BGu6p5CbK9n8Td424ssW2Yf48BI6rorVeawIPokPUWpRIPzUAti+lb7A+74rYqVw4IYqvJp0jUarhcPiu+tGCEpNLgA36xMaqk6suxZYESS+gLwyuUp81dfbSukXEdcOz4mn5TgVGaZvw7jkPOge62kYcgCsLryWYQ7MhwLfhw2eURn+YbjlQqbpCgCmIQCWxB4qJ2K35G+SR91yZP+LBIbH9OYwLvFQMJP12DghXSSdA+0jgzr0vAxc3sYCyk/hEQTDwdgSqfaYp5cEPVK+WZijEI9z1Tflb/6dRKYN/rgavzsxVcqLvbyxkELQcXLxYwB3qYNFkUMZ8bIbI4wi48JoTyQj9AFie0ycu6U/MboHfQjZSgBvAgV7WtSTB2192RCDJwrKA+VHVqdx62DtAmbuwW3uUlIGB8VWgpc00kiFU7/p6Qx0W5zY8CrnUylfb2YU3xMZZP9mhf3b8DQkyzLfs4oqfrN9UCVcvqxhttty0pzqXa9cTotz/Ldat/YdpYo8KjCcNsqSWBWPyb33C7IGRuDjOylu5BZuEDnLKpKtK2v/OpnoS19Ck3Mk3FzYA9wQ5RJYB7b2oxeLrB2zsTj3FI6OMyNIi6wTCfyTKfJlIAeEA=
       draft: true
-      skip_cleanup: true
       overwrite: true
       file: track.linux
       on: &2
@@ -32,9 +31,8 @@ jobs:
     if: tag IS present
     deploy:
       provider: releases
-      api_key: *1
+      token: *1
       draft: true
-      skip_cleanup: true
       overwrite: true
       file: track.macos
       on: *2
@@ -44,9 +42,8 @@ jobs:
     if: tag IS present
     deploy:
       provider: releases
-      api_key: *1
+      token: *1
       draft: true
-      skip_cleanup: true
       overwrite: true
       file: track.windows.exe
       on: *2
