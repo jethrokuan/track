@@ -1,5 +1,5 @@
 [package]
-name = "track-cli"
+name = "track"
 version = "0.1.0"
 authors = ["Jethro Kuan <jethrokuan95@gmail.com>"]
 edition = "2018"
