@@ -7,46 +7,36 @@ rust:
 - 1.46.0
 branches:
   only:
-  - master
-  - "/^\\d+\\.\\d+\\.\\d+$/"
-  - "/^rust-.*/"
+    - master
+    - /^\d+\.\d+\.\d+$/
+    - /^rust-.*/
 jobs:
   include:
   - name: compile for linux
     os: linux
     script: scripts/compile.linux.sh
     if: tag IS present
-    deploy:
+    deploy: &deploy_base
       provider: releases
-      api_key: &1
+      api_key:
         secure: gMFJDt6AcxKQYLza0+Zd705hfh13whUx/+pe3wKdrpoM0dTKXjn0c4dB4ZI+uLvwFwFylCbVYhvhJJIH4VTx039HlcGPlzZh13d7bz8ZthcHGdswg3PAuyqe9v59ABMkXIXpI36jek8iiFIS1zyRk/mTCzbSPO38+MP40bSgm2tqWSAqd7epHMHEVStyhkWRmsIIe9Q4pXzxzKOZKq5cM9ANo90rHijtbH5vVgGIRp+OpB12OcW6SY7vU3NDDCthN8KlJ3KWYds0l5eJtAOitysbrmkLYJmdRsNwltRrSeVfka/5SvaABinKT4+oQ5bGhdP/KkZTMVid5/upy8DUGZC0tN2rU0lVLpTuDdJRuZCem8jkT6L4wnOIVSrCVlqzydhfp8lNg7SUxL24Qvi1bmsqo8TpSK6ZwU48fV6I/Vw3aUWUY3ZuQvJzEuW2XLscG2Gy0GjbzzJN8Hg7Wc62+XcB7DVNgq+0mc01LojcGaeZadUvavV5Z2dzDp+CHnc9bxvBOWouu84m3NBrLTMfiZETUipH+On3wWyMqnDsIiiXlL7NaxIl5JrfzjdEq+pAb2RKg2xNZ8S4sBAGA7lXQ3AQCNnlrkI7yM3IorsB6DSk7SlPKnvAkMSkarVQ9aD1sU10ID99a0gu/2/yxXlGHBpJtMCTH1KgQx/dCRKGV7A=
       draft: true
       skip_cleanup: true
       overwrite: true
-      file: fluminurs.linux
-      on: &2
+      file: track.linux
+      on:
         tags: true
   - name: compile for macos
     os: osx
     script: scripts/compile.mac.sh
     if: tag IS present
     deploy:
-      provider: releases
-      api_key: *1
-      draft: true
-      skip_cleanup: true
-      overwrite: true
-      file: fluminurs.macos
-      on: *2
+      <<: *deploy_base
+      file: track.macos
   - name: compile for windows
     os: windows
     script: scripts/compile.windows.sh
     if: tag IS present
     deploy:
-      provider: releases
-      api_key: *1
-      draft: true
-      skip_cleanup: true
-      overwrite: true
-      file: fluminurs.windows.exe
-      on: *2
+      <<: *deploy_base
+      file: track.windows.exe
