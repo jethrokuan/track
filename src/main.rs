@@ -4,7 +4,6 @@ extern crate lazy_static;
 #[macro_use]
 extern crate anyhow;
 
-use clap::{App, Arg, SubCommand};
 use chrono::prelude::*;
 use itertools::Itertools;
 use regex::Regex;
@@ -16,98 +15,58 @@ use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
 use std::path::PathBuf;
+use structopt::StructOpt;
 
 use std::env;
 use tokio::stream::StreamExt;
 use telegram_bot::*;
 
-
-const PKG_NAME: &str = "Track";
-const TRACK_VERSION: &str = env!("CARGO_PKG_VERSION");
-const TRACK_DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
-
 use anyhow::{Context, Result};
 
+#[derive(Debug, StructOpt)]
+#[structopt(name="track")]
+enum Opt {
+    #[structopt(help="Add an entry to the track file.")]
+    Add {
+        #[structopt(short, long, index=1)]
+        category: String,
+
+        #[structopt(short, long, index=2)]
+        info: String,
+    },
+
+    #[structopt(help="Query the track file.")]
+    Query {
+        #[structopt(short, long, index=1)]
+        category: String,
+
+        #[structopt(short, long, index=2, default_value="7")]
+        range: i64,
+    },
+
+    #[structopt(help="Start telegram bot.")]
+    Bot { }
+}
+
 async fn run() -> Result<()> {
-    let mut app = App::new(PKG_NAME)
-        .version(TRACK_VERSION)
-        .author(clap::crate_authors!(", "))
-        .about(TRACK_DESCRIPTION)
-        .arg(
-            Arg::with_name("file")
-                .short("f")
-                .long("file")
-                .value_name("FILE")
-                .help("Path to track file")
-                .takes_value(true),
-        )
-        .subcommand(
-            SubCommand::with_name("add")
-                .about("add a new entry")
-                .arg(
-                    Arg::with_name("categories")
-                        .required(true)
-                        .index(1)
-                        .help("the categories for the entry"),
-                )
-                .arg(
-                    Arg::with_name("info")
-                        .required(true)
-                        .index(2)
-                        .help("the info for the entry"),
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("query")
-                .about("query entries")
-                .arg(
-                    Arg::with_name("categories")
-                        .required(true)
-                        .index(1)
-                        .help("the categories for the entry"),
-                )
-                .arg(
-                    Arg::with_name("range")
-                        .index(2)
-                        .help("the range to query for"),
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("bot")
-                .about("launch telegram bot")
-        );
-    let matches = app.clone().get_matches();
-
-    let mut default_track_file = dirs::home_dir().expect("Unable to get home directory");
-    default_track_file.push(".track");
-    let track_file = match matches.value_of("file") {
-        Some(f) => PathBuf::from(f),
-        None => default_track_file,
-    };
-
+    let mut track_file = dirs::home_dir().expect("Unable to get home directory");
+    track_file.push(".track");
     let mut track = Track::new(track_file)?;
 
-    match matches.subcommand() {
-        ("query", Some(m)) => {
+    let opt = Opt::from_args();
+
+    match opt {
+        Opt::Add{ category, info } => {
+            track.add_entry(&category, &info)?;
+        },
+        Opt::Query{ category, range } => {
             track.load()?;
-            let categories = m.value_of("categories").unwrap();
-            let range = m.value_of("range").unwrap_or("7");
-            let range = range.parse::<i64>()?;
-            track.query(categories, range)?;
-        }
-        ("add", Some(m)) => {
-            track.add_entry(
-                m.value_of("categories").unwrap(),
-                m.value_of("info").unwrap(),
-            )?;
-        }
-        ("bot", Some(_)) => {
+            track.query(&category, range)?;
+        },
+        Opt::Bot {  } => {
             track.telegram_bot().await?;
         }
-        _ => {
-            app.print_help()?;
-        }
-    }
+    };
 
     Ok(())
 }
