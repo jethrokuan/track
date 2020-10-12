@@ -18,34 +18,34 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 
 use std::env;
-use tokio::stream::StreamExt;
 use telegram_bot::*;
+use tokio::stream::StreamExt;
 
 use anyhow::{Context, Result};
 
 #[derive(Debug, StructOpt)]
-#[structopt(name="track")]
+#[structopt(name = "track")]
 enum Opt {
-    #[structopt(help="Add an entry to the track file.")]
+    #[structopt(help = "Add an entry to the track file.")]
     Add {
-        #[structopt(short, long, index=1)]
+        #[structopt(short, long, index = 1)]
         category: String,
 
-        #[structopt(short, long, index=2)]
+        #[structopt(short, long, index = 2)]
         info: String,
     },
 
-    #[structopt(help="Query the track file.")]
+    #[structopt(help = "Query the track file.")]
     Query {
-        #[structopt(short, long, index=1)]
+        #[structopt(short, long, index = 1)]
         category: String,
 
-        #[structopt(short, long, index=2, default_value="7")]
+        #[structopt(short, long, index = 2, default_value = "7")]
         range: i64,
     },
 
-    #[structopt(help="Start telegram bot.")]
-    Bot { }
+    #[structopt(help = "Start telegram bot.")]
+    Bot {},
 }
 
 async fn run() -> Result<()> {
@@ -56,14 +56,14 @@ async fn run() -> Result<()> {
     let opt = Opt::from_args();
 
     match opt {
-        Opt::Add{ category, info } => {
+        Opt::Add { category, info } => {
             track.add_entry(&category, &info)?;
-        },
-        Opt::Query{ category, range } => {
+        }
+        Opt::Query { category, range } => {
             track.load()?;
             track.query(&category, range)?;
-        },
-        Opt::Bot {  } => {
+        }
+        Opt::Bot {} => {
             track.telegram_bot().await?;
         }
     };
@@ -158,12 +158,14 @@ impl Track {
                         } else {
                             String::new()
                         },
-                        format!("{}{}", log,
-                                if *count != 1 as i64 {
-                                    format!("x{}", count)
-                                } else {
-                                    String::new()
-                                }
+                        format!(
+                            "{}{}",
+                            log,
+                            if *count != 1 as i64 {
+                                format!("x{}", count)
+                            } else {
+                                String::new()
+                            }
                         )
                     );
                 }
@@ -228,13 +230,16 @@ impl Track {
                                 self.add_entry(category, value)
                                     .with_context(|| "Failed to add entry")
                             }
-                        },
-                        None => Err(anyhow!("Invalid entry"))
+                        }
+                        None => Err(anyhow!("Invalid entry")),
                     };
 
                     match res {
                         Ok(_) => api.send(message.text_reply("Saved!")).await?,
-                        Err(e) => api.send(message.text_reply(format!("Errored! {}", e))).await?
+                        Err(e) => {
+                            api.send(message.text_reply(format!("Errored! {}", e)))
+                                .await?
+                        }
                     };
                 }
             }
