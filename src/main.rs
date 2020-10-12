@@ -1,12 +1,11 @@
-#![recursion_limit = "1024"]
-
-#[macro_use]
-extern crate error_chain;
-
 #[macro_use]
 extern crate lazy_static;
-use chrono::prelude::*;
+
+#[macro_use]
+extern crate anyhow;
+
 use clap::{App, Arg, SubCommand};
+use chrono::prelude::*;
 use itertools::Itertools;
 use regex::Regex;
 use std::collections::HashMap;
@@ -27,20 +26,7 @@ const PKG_NAME: &str = "Track";
 const TRACK_VERSION: &str = env!("CARGO_PKG_VERSION");
 const TRACK_DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
-mod errors {
-    error_chain! {
-        foreign_links {
-            Num(::std::num::ParseIntError);
-            Float(::std::num::ParseFloatError);
-            Clap(::clap::Error);
-            Io(::std::io::Error);
-            Chrono(::chrono::format::ParseError);
-            TelegramBot(::telegram_bot::Error);
-        }
-    }
-}
-
-use errors::*;
+use anyhow::{Context, Result};
 
 async fn run() -> Result<()> {
     let mut app = App::new(PKG_NAME)
@@ -128,16 +114,7 @@ async fn run() -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    if let Err(ref e) = run().await {
-        println!("error: {}", e);
-        for e in e.iter().skip(1) {
-            println!("caused by: {}", e);
-        }
-        if let Some(backtrace) = e.backtrace() {
-            println!("backtrace: {:?}", backtrace);
-        }
-        std::process::exit(1);
-    }
+    run().await?;
     Ok(())
 }
 
@@ -268,7 +245,7 @@ impl Track {
     }
 
     async fn telegram_bot(&self) -> Result<()> {
-        let token = env::var("TELEGRAM_BOT_TOKEN").chain_err(|| "TELEGRAM_BOT_TOKEN not set")?;
+        let token = env::var("TELEGRAM_BOT_TOKEN").with_context(|| "TELEGRAM_BOT_TOKEN not set")?;
         let api = Api::new(token);
 
         // Fetch new updates via long poll method
@@ -285,15 +262,15 @@ impl Track {
                             let value = &data[v..].trim();
 
                             if category.is_empty() {
-                                Err("Invalid entry: category is empty".into())
+                                Err(anyhow!("Invalid entry: category is empty"))
                             } else if value.is_empty() {
-                                Err("Invalid entry: value is empty".into())
+                                Err(anyhow!("Invalid entry: value is empty"))
                             } else {
                                 self.add_entry(category, value)
-                                    .chain_err(|| "Failed to add entry")
+                                    .with_context(|| "Failed to add entry")
                             }
                         },
-                        None => Err("Invalid entry".into())
+                        None => Err(anyhow!("Invalid entry"))
                     };
 
                     match res {
