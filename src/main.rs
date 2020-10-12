@@ -200,7 +200,7 @@ impl Track {
             categories: String::from(categories).to_lowercase(),
             info: EntryInfo::from(info)?,
         };
-        write!(&file, "{}\n", entry.to_string())?;
+        writeln!(&file, "{}", entry.to_string())?;
 
         Ok(())
     }
@@ -216,7 +216,7 @@ impl Track {
             let update = update?;
             if let UpdateKind::Message(message) = update.kind {
                 if let MessageKind::Text { ref data, .. } = message.kind {
-                    let first_space = data.find(" ");
+                    let first_space = data.find(' ');
                     let res = match first_space {
                         Some(v) => {
                             let category = &data[0..v];
@@ -330,7 +330,7 @@ impl EntryInfo {
         let quantity = caps.get(1).unwrap().as_str();
         let unit = caps.get(2).unwrap().as_str().to_string();
         if quantity.is_empty() {
-            return Ok(EntryInfo::L(String::from(s)));
+            Ok(EntryInfo::L(String::from(s)))
         } else {
             let quantity = quantity.parse::<f32>()?;
             Ok(EntryInfo::Q(Quantity { quantity, unit }))
